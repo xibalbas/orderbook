@@ -8,7 +8,7 @@ from orderbook.orderbook import OrderBook
 @pytest.fixture(scope='module')
 def red():
     '''Returns an StrictRedis connection'''
-    return redis.StrictRedis(host='localhost', port=6379, db=2)
+    return redis.StrictRedis(host='localhost', port=6379, db=2, encoding='utf-8', decode_responses=True)
 
 @pytest.fixture(scope='function')
 def ob(red, request):
