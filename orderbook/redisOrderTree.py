@@ -62,14 +62,14 @@ class OrderTree(object):
     def maxPrice(self):
         r = self.red.zrevrange(self.KEY_PRICE_TREE, 0, 0)
         if r:
-            return int(r[0])
+            return float(r[0])
         else:
             return 0
 
     def minPrice(self):
         r = self.red.zrange(self.KEY_PRICE_TREE, 0, 0)
         if r:
-            return int(r[0])
+            return float(r[0])
         else:
             return 0
 

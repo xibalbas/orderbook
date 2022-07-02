@@ -16,8 +16,8 @@ class OrderPriceError(OrderException): pass
 
 class Order(object):
     def __init__(self, qty, price, traderId, timestamp, orderId):
-        self.qty = int(qty)
-        self.price = int(price)
+        self.qty = float(qty)
+        self.price = float(price)
         self.traderId = traderId
         self.timestamp = timestamp
         self.orderId = orderId
@@ -181,7 +181,7 @@ class OrderBook(object):
             self.asks.removeOrderById(orderId)
 
     def getBestBid(self):
-        return self.bids.maxPrice()
+        return float(self.bids.maxPrice())
 
     def getWorstBid(self):
         return self.bids.minPrice()
