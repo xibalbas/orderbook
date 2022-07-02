@@ -5,7 +5,7 @@ TO TEST:
 """
 import pytest
 
-from orderbook import Bid, Ask, OrderQuantityError, OrderPriceError
+from orderbook.orderbook import Bid, Ask, OrderQuantityError, OrderPriceError
 
 def test_ping(red):
     assert red.ping()

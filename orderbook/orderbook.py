@@ -4,9 +4,9 @@ Redis based Limit Order Book.
 derived from https://github.com/ab24v07/PyLOB
 """
 import math, time
-from cStringIO import StringIO
+from io import StringIO
 
-from redisOrderTree import OrderTree
+from orderbook.redisOrderTree import OrderTree
 
 __all__ = ['OrderException', 'OrderQuantityError', 'OrderPriceError', 'Bid', 'Ask', 'Trade', 'OrderBook']
 

@@ -10,9 +10,9 @@ class OrderTree(object):
         #self.nOrders = 0   # How many orders?
         #self.lobDepth = 0  # How many different prices on lob? find using zcard and llen or cache?
 
-        self.KEY_PRICE_TREE = 'prices-%s-%s-%s' % (baseCurrency, quoteCurrency, side)
-        self.KEY_TEMPLATE_QUOTE = 'quote-%s-%s-%%s' % (baseCurrency, quoteCurrency) #quote id
-        self.KEY_TEMPLATE_PRICE_QUOTES = '%s-%s-%s-%%s' % (side, baseCurrency, quoteCurrency) #price
+        self.KEY_PRICE_TREE = f'prices-{baseCurrency}-{quoteCurrency}-{side}'
+        self.KEY_TEMPLATE_QUOTE = f'quote-{baseCurrency}-{quoteCurrency}-%s'  #quote id
+        self.KEY_TEMPLATE_PRICE_QUOTES = f'{side}-{baseCurrency}-{quoteCurrency}-%s' #price
 
     def __len__(self):
         return self.red.zcard(self.KEY_PRICE_TREE)
@@ -38,7 +38,7 @@ class OrderTree(object):
         price = order.price
         if not self.red.exists(self.KEY_TEMPLATE_PRICE_QUOTES % price):
             #self.lobDepth += 1
-            self.red.zadd(self.KEY_PRICE_TREE, price, price)
+            self.red.zadd(self.KEY_PRICE_TREE, {price: price})
 
         self.red.hmset(self.KEY_TEMPLATE_QUOTE % order.orderId, order.__dict__)
         self.red.rpush(self.KEY_TEMPLATE_PRICE_QUOTES % price, order.orderId)

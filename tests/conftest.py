@@ -3,12 +3,12 @@
 import pytest
 import redis
 
-from orderbook import OrderBook
+from orderbook.orderbook import OrderBook
 
 @pytest.fixture(scope='module')
 def red():
     '''Returns an StrictRedis connection'''
-    return redis.StrictRedis(host='localhost', port=6379, db=13)
+    return redis.StrictRedis(host='localhost', port=6379, db=2)
 
 @pytest.fixture(scope='function')
 def ob(red, request):
