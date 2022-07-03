@@ -8,7 +8,7 @@ class RedisManager:
             host=ABAN_BACKEND_REDIS_HOST, port=ABAN_BACKEND_REDIS_PORT,
             db=db, decode_responses=True, charset="utf-8"
             )
-        return self._connection
+
 
     def set(self, key, value):
         self._connection.set(key, value)
