@@ -7,12 +7,9 @@ import math, time
 from io import StringIO
 
 from orderbook.redisOrderTree import OrderTree
+from orderbook.exceptions import *
 
 __all__ = ['OrderException', 'OrderQuantityError', 'OrderPriceError', 'Bid', 'Ask', 'Trade', 'OrderBook']
-
-class OrderException(Exception): pass
-class OrderQuantityError(OrderException): pass
-class OrderPriceError(OrderException): pass
 
 class Order(object):
     def __init__(self, qty, price, trader_id, timestamp, order_id):
@@ -38,6 +35,7 @@ class Order(object):
                 tree.update_order_quantity(order.order_id, new_book_qty)
                 # Incoming done with
                 qty_to_trade = 0
+                
             elif qty_to_trade == order.qty:
                 traded_qty = qty_to_trade
                 # hit bid or lift ask
@@ -53,20 +51,34 @@ class Order(object):
 
             transaction_record = {'timestamp': book.get_timestamp(), 'price': order.price, 'qty': traded_qty}
             if tree.side == 'bid':
-                transaction_record['party1'] = [order.trader_id, 'bid', order.order_id]
-                transaction_record['party2'] = [self.trader_id, 'ask', None]
+                # transaction_record['seller_side'] = [order.trader_id, 'bid', order.order_id]
+                # transaction_record['buyer_side'] = [self.trader_id, 'ask', None]
+                
+                transaction_record['bid_side_trader_id'] = order.trader_id
+                transaction_record['bid_side_order_id'] = order.order_id
+                
+                transaction_record['ask_side_trader_id'] = self.trader_id
+                transaction_record['ask_side_order_id'] = None
+
+                
             else:
-                transaction_record['party1'] = [order.trader_id, 'ask', order.order_id]
-                transaction_record['party2'] = [self.trader_id, 'bid', None]
+                # transaction_record['buyer_side'] = [order.trader_id, 'ask', order.order_id]
+                # transaction_record['seller_side'] = [self.trader_id, 'bid', None]
+                
+                transaction_record['bid_side_trader_id'] = self.trader_id
+                transaction_record['bid_side_order_id'] = None
+                
+                transaction_record['ask_side_trader_id'] = order.trader_id
+                transaction_record['ask_side_order_id'] = order.order_id
+                
             trades.append(transaction_record)
         return qty_to_trade, trades
 
     def __str__(self):
-        return "%s\t@\t%s\tts=%s\ttid=%s\toid=%s" % (self.qty, self.price, self.timestamp, self.trader_id, self.order_id)
+        return f"{self.qty}\t@\t{self.price}\tts={self.timestamp}\ttid={self.trader_id}\toid={self.order_id}"
 
     def __repr__(self):
-        return '<%s %s @ %s tr:%s o:%s ti:%s>' % (getattr(self, 'side', 'order').capitalize(), self.qty, self.price,
-                                                  self.trader_id, self.order_id, self.timestamp)
+        return f"<{getattr(self, 'side', 'order').capitalize()} {self.qty} @ {self.price} tr:{self.trader_id} o:{self.order_id} ti:{self.timestamp}>" 
 
 
 class Bid(Order):
@@ -79,9 +91,14 @@ class Bid(Order):
         order_in_book = None
         qty_to_trade = self.qty
         while (asks and self.price >= asks.min_price() and qty_to_trade > 0):
-            best_price_asks = [Ask(x['qty'], x['price'], x['trader_id'], x['timestamp'], x['order_id']) for x in asks.min_price_list()]
+            best_price_asks = [Ask(x['qty'],
+                                   x['price'],
+                                   x['trader_id'],
+                                   x['timestamp'],
+                                   x['order_id']) for x in asks.min_price_list()]
             qty_to_trade, new_trades = self.process_price_level(book, asks, best_price_asks, qty_to_trade)
             trades += new_trades
+            
         # If volume remains, add to book
         if qty_to_trade > 0:
             self.order_id = book.get_next_quote_id()
@@ -94,7 +111,12 @@ class Bid(Order):
         trades = []
         qty_to_trade = self.qty
         while qty_to_trade > 0 and self.asks:
-            best_price_asks = [Ask(x['qty'], x['price'], x['trader_id'], x['timestamp'], x['order_id']) for x in asks.min_price_list()]
+            best_price_asks = [Ask(x['qty'],
+                                   x['price'],
+                                   x['trader_id'],
+                                   x['timestamp'],
+                                   x['order_id']) for x in asks.min_price_list()]
+            
             qty_to_trade, new_trades = self.process_price_level(book, asks, best_price_asks, qty_to_trade)
             trades += new_trades
         return trades
@@ -110,22 +132,34 @@ class Ask(Order):
         order_in_book = None
         qty_to_trade = self.qty
         while (bids and self.price <= bids.max_price() and qty_to_trade > 0):
-            best_price_bids = [Bid(x['qty'], x['price'], x['trader_id'], x['timestamp'], x['order_id']) for x in bids.max_price_list()]
+            best_price_bids = [Bid(x['qty'],
+                                   x['price'],
+                                   x['trader_id'],
+                                   x['timestamp'],
+                                   x['order_id']) for x in bids.max_price_list()]
+            
             qty_to_trade, new_trades = self.process_price_level(book, bids, best_price_bids, qty_to_trade)
             trades += new_trades
+            
         # If volume remains, add to book
         if qty_to_trade > 0:
             self.order_id = book.get_next_quote_id()
             self.qty = qty_to_trade
             asks.insert_order(self)
             order_in_book = self
+            
         return trades, order_in_book
 
     def market_order(self, book, bids, asks):
         trades = []
         qty_to_trade = self.qty
         while qty_to_trade > 0 and self.bids:
-            best_price_bids = [Bid(x['qty'], x['price'], x['trader_id'], x['timestamp'], x['order_id']) for x in bids.max_price_list()]
+            best_price_bids = [Bid(x['qty'],
+                                   x['price'],
+                                   x['trader_id'],
+                                   x['timestamp'],
+                                   x['order_id']) for x in bids.max_price_list()]
+            
             qty_to_trade, new_trades = self.process_price_level(book, bids, best_price_bids, qty_to_trade)
             trades += new_trades
         return trades
@@ -138,12 +172,14 @@ class Trade(object):
         self.qty = qty
         self.price = price
         self.timestamp = timestamp
-        self.p1_trader_id = p1_trader_id
-        self.p1_side = p1_side
-        self.p1_order_id = p1_order_id
-        self.p2_trader_id = p2_trader_id
-        self.p2_side = p2_side
-        self.p2_order_id = p2_order_id
+        
+        self.buyer_trader_id = p1_trader_id
+        self.buyer_side = p1_side
+        self.buyer_order_id = p1_order_id
+        
+        self.seller_trader_id = p2_trader_id
+        self.seller_side = p2_side
+        self.seller_order_id = p2_order_id
 
 
 class OrderBook(object):
@@ -169,7 +205,6 @@ class OrderBook(object):
 
         order.timestamp = self.get_timestamp()
 
-        #order['price'] = self._clip_price(order['price'])
         trades, order_in_book = order.limit_order(self, self.bids, self.asks)
 
         return trades, order_in_book
@@ -208,20 +243,19 @@ class OrderBook(object):
 
     def __str__(self):
         fileStr = StringIO()
-        #fileStr.write('Bid vol: %s Ask vol: %s\n' % (self.bids.volume, self.asks.volume))
-        #fileStr.write('Bid count: %s Ask count: %s\n' % (self.bids.nOrders, self.asks.nOrders))
-        #fileStr.write('Bid depth: %s Ask depth: %s\n' % (self.bids.lobDepth, self.asks.lobDepth))
+
         fileStr.write('Bid max: %s Ask max: %s\n' % (self.bids.max_price(), self.asks.max_price()))
         fileStr.write('Bid min: %s Ask min: %s\n' % (self.bids.min_price(), self.asks.min_price()))
         fileStr.write("------ Bids -------\n")
         if self.bids != None and len(self.bids) > 0:
-            for v in self.bids.get_quotes(reverse=True): #priceTree.items(reverse=True):
-                fileStr.write('%s @ %s\n' % (float(v['qty'])/1e5, float(v['price'])/1e8))
+            for v in self.bids.get_quotes(reverse=True):
+                fileStr.write(f"{float(v['qty'])} @ {float(v['price'])}\n" )
+                
         fileStr.write("\n------ Asks -------\n")
         if self.asks != None and len(self.asks) > 0:
             for v in self.asks.get_quotes(): #priceTree.items():
-                #fileStr.write('%s\n' % v)
-                fileStr.write('%s @ %s\n' % (float(v['qty'])/1e5, float(v['price'])/1e8))
+                fileStr.write("{float(v['qty'])} @ {float(v['price'])}\n")
+                
         fileStr.write("\n------ Trades ------\n")
         if self.tape != None and len(self.tape) > 0:
             for entry in self.tape[-5:]:
