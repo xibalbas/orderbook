@@ -1,7 +1,5 @@
-"""
-redis based order book.
-"""
 from orderbook.db_operations import RedisManager
+
 
 class OrderTree(object):
     def __init__(self, side, base_currency, quote_currency, red):

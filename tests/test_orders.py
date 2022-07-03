@@ -7,8 +7,8 @@ import pytest
 
 from orderbook.orderbook import Bid, Ask, OrderQuantityError, OrderPriceError
 
-def test_ping(red):
-    assert red.ping()
+def test_ping(redis_fixture):
+    assert redis_fixture.ping()
 
 def test_empty_orderbook(ob):
     assert ob.get_best_ask() == 0

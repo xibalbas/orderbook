@@ -1,17 +1,12 @@
-"""
-Redis based Limit Order Book.
-
-derived from https://github.com/ab24v07/PyLOB
-"""
 import math, time
+from os import stat
 from io import StringIO
-
 from orderbook.redisOrderTree import OrderTree
 from orderbook.exceptions import *
 
 __all__ = ['OrderException', 'OrderQuantityError', 'OrderPriceError', 'Bid', 'Ask', 'Trade', 'OrderBook']
 
-class Order(object):
+class Order:
     def __init__(self, qty, price, trader_id, timestamp, order_id):
         self.qty = float(qty)
         self.price = float(price)
@@ -49,29 +44,29 @@ class Order(object):
                 # continue processing volume at this price
                 qty_to_trade -= traded_qty
 
-            transaction_record = {'timestamp': book.get_timestamp(), 'price': order.price, 'qty': traded_qty}
-            if tree.side == 'bid':
-                # transaction_record['seller_side'] = [order.trader_id, 'bid', order.order_id]
-                # transaction_record['buyer_side'] = [self.trader_id, 'ask', None]
-                
+            transaction_record = {
+                'timestamp': book.get_timestamp(),
+                'price': order.price,
+                'qty': traded_qty
+                }
+            if tree.side == 'bid':                
                 transaction_record['bid_side_trader_id'] = order.trader_id
                 transaction_record['bid_side_order_id'] = order.order_id
                 
                 transaction_record['ask_side_trader_id'] = self.trader_id
                 transaction_record['ask_side_order_id'] = None
-
                 
-            else:
-                # transaction_record['buyer_side'] = [order.trader_id, 'ask', order.order_id]
-                # transaction_record['seller_side'] = [self.trader_id, 'bid', None]
-                
+            else:                
                 transaction_record['bid_side_trader_id'] = self.trader_id
                 transaction_record['bid_side_order_id'] = None
-                
+
                 transaction_record['ask_side_trader_id'] = order.trader_id
                 transaction_record['ask_side_order_id'] = order.order_id
                 
+            Trade(transaction=transaction_record)
+                   
             trades.append(transaction_record)
+            
         return qty_to_trade, trades
 
     def __str__(self):
@@ -91,11 +86,12 @@ class Bid(Order):
         order_in_book = None
         qty_to_trade = self.qty
         while (asks and self.price >= asks.min_price() and qty_to_trade > 0):
-            best_price_asks = [Ask(x['qty'],
-                                   x['price'],
-                                   x['trader_id'],
-                                   x['timestamp'],
-                                   x['order_id']) for x in asks.min_price_list()]
+            best_price_asks = [Ask(item['qty'],
+                                   item['price'],
+                                   item['trader_id'],
+                                   item['timestamp'],
+                                   item['order_id']) for item in asks.min_price_list()]
+            
             qty_to_trade, new_trades = self.process_price_level(book, asks, best_price_asks, qty_to_trade)
             trades += new_trades
             
@@ -154,35 +150,54 @@ class Ask(Order):
         trades = []
         qty_to_trade = self.qty
         while qty_to_trade > 0 and self.bids:
-            best_price_bids = [Bid(x['qty'],
-                                   x['price'],
-                                   x['trader_id'],
-                                   x['timestamp'],
-                                   x['order_id']) for x in bids.max_price_list()]
+            best_price_bids = [Bid(item['qty'],
+                                   item['price'],
+                                   item['trader_id'],
+                                   item['timestamp'],
+                                   item['order_id']) for item in bids.max_price_list()]
             
             qty_to_trade, new_trades = self.process_price_level(book, bids, best_price_bids, qty_to_trade)
             trades += new_trades
         return trades
 
 
-class Trade(object):
-    def __init__(self, qty, price, timestamp,
-                 p1_trader_id, p1_side, p1_order_id,
-                 p2_trader_id, p2_side, p2_order_id):
-        self.qty = qty
-        self.price = price
-        self.timestamp = timestamp
+class Trade:
+    def __init__(self, transaction: dict, red):
+        self.red = red
         
-        self.buyer_trader_id = p1_trader_id
-        self.buyer_side = p1_side
-        self.buyer_order_id = p1_order_id
+        self.qty = transaction.get('qty')
+        self.price = transaction.get('price')
+        self.timestamp = transaction.get('timestamp')
         
-        self.seller_trader_id = p2_trader_id
-        self.seller_side = p2_side
-        self.seller_order_id = p2_order_id
+        self.ask_side_trader_id = transaction.get('ask_side_trader_id')
+        self.ask_side_order_id = transaction.get('ask_side_order_id')
+        
+        self.bid_side_trader_id = transaction.get('bid_side_trader_id')
+        self.bid_side_order_id = transaction.get('bid_side_order_id')
+        
+        self.record(transaction=transaction)
+        
+    def record(self, transaction: dict):
+        # should record in db
+        # TODO need a SQL model
+        pass
+    
+    @staticmethod
+    def get_all_trades():
+        # read all trades from db
+        pass
+    
+    @staticmethod
+    def get_last_10_trades():
+        # read last trades from db
+        pass
+    
+    @staticmethod
+    def get_user_trades():
+        # get specific user trades
+        pass
 
-
-class OrderBook(object):
+class OrderBook:
     def __init__(self, base_currency, quote_currency, red, tick_size=0.0001):
         self.red = red
         self.tick_size = tick_size
@@ -262,4 +277,4 @@ class OrderBook(object):
                 fileStr.write(str(entry['qty']) + " @ " + str(entry['price']) + " (" + str(entry['timestamp']) + ")\n")
         fileStr.write("\n")
         return fileStr.getvalue()
-
+    
