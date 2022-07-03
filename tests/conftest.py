@@ -1,29 +1,24 @@
-#ob = OrderBook('XBT', 'XLT', redis.StrictRedis(host='localhost', port=6379, db=13))
-
 import pytest
 import redis
 
 from orderbook.orderbook import OrderBook
 
 @pytest.fixture(scope='module')
-def red():
-    '''Returns an StrictRedis connection'''
-    return redis.StrictRedis(host='localhost', port=6379, db=2, encoding='utf-8', decode_responses=True)
+def redis_fixture():
+    return redis.StrictRedis(host='localhost', 
+                             port=6379, db=2, 
+                             encoding='utf-8', 
+                             decode_responses=True
+                             )
 
 @pytest.fixture(scope='function')
-def ob(red, request):
-    '''Returns an empty OrderBook'''
+def ob(redis_fixture, request):
     def fin():
-        red.flushdb()
-
+        redis_fixture.flushdb()
     request.addfinalizer(fin)
-    return OrderBook('XBT', 'XLT', red)
+    
+    return OrderBook('BTC', 'USDT', redis_fixture)
 
 @pytest.fixture(scope='function')
-def testOrderbook(red):
-    '''Returns an OrderBook populated with 20 test non crossing bids/asks'''
-    #FIXME or use ob fixture?
-    ob = OrderBook('XBT', 'XLT', red)
-    #ob. some bids
-    #ob. some asks
-    return ob
+def testOrderbook(redis_fixture):
+    return OrderBook('BTC', 'USDT', redis_fixture)
