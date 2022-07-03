@@ -162,9 +162,7 @@ class Ask(Order):
 
 
 class Trade:
-    def __init__(self, transaction: dict, red):
-        self.red = red
-        
+    def __init__(self, transaction: dict):
         self.qty = transaction.get('qty')
         self.price = transaction.get('price')
         self.timestamp = transaction.get('timestamp')
